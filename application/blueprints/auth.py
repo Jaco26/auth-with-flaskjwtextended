@@ -1,7 +1,11 @@
 from flask import Blueprint
-from flask_jwt_extended import jwt_refresh_token_required, create_access_token, create_refresh_token, get_jwt_identity
+from flask_jwt_extended import (
+  jwt_required, jwt_refresh_token_required, create_access_token, 
+  create_refresh_token, get_jwt_identity, get_raw_jwt
+)
 from application.my_utils import get_args, api_response, bad_unpw
 from application.models.user import UserModel
+from application.models.revoked_token import RevokedToken
 
 auth_bp = Blueprint("my_auth", __name__)
 
@@ -50,4 +54,23 @@ def login():
 def refresh():
   current_user = get_jwt_identity()
   return api_response(data={'access_token': create_access_token(identity=current_user)})
+
+@auth_bp.route('/logout-access', methods=["POST"])
+@jwt_required
+def logout_access():
+  jti = get_raw_jwt()['jti']
+  revoked_token = RevokedToken(jti=jti)
+  revoked_token.save_to_db()
+  return api_response(msg="access logout")
+
+@auth_bp.route('/logout-refresh', methods=["POST"])
+@jwt_refresh_token_required
+def logout_refresh():
+  jti = get_raw_jwt()['jti']
+  revoked_token = RevokedToken(jti=jti)
+  revoked_token.save_to_db()
+  return api_response(msg="refresh logout")
+
+
+
 
