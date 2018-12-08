@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from flask_jwt_extended import JWTManager, jwt_required, jwt_refresh_token_required, create_access_token, create_refresh_token, get_jwt_identity
 
 def get_args(*args):
   req_json = request.get_json()
@@ -37,8 +37,19 @@ def create_app():
       username=data['username'],
       password=UserModel.generate_hash(data['password'])
     )
-    new_user.save_to_db()
-    return api_response('user saved', data={'user': new_user.to_json()})
+    try:
+      new_user.save_to_db()
+      access_token = create_access_token(identity=data['username'])
+      refresh_token = create_refresh_token(identity=data['username'])
+      return api_response(
+        msg="{} has successfully registered!".format(data['username']), 
+        data={
+          'access_token': access_token,
+          'refresh_token': refresh_token,
+        }
+      ), 201
+    except:
+      return api_response(msg="Error during registration"), 500
 
   @app.route('/login', methods=["POST"])
   def login():
@@ -47,11 +58,26 @@ def create_app():
     if user:
       if UserModel.verify_hash(data['password'], user.password):
         return api_response(
-          msg="You've logged in!",
-          data=user.to_json()
+          msg="Logged in as {}".format(data['username']),
+          data={
+            'username': data['username'],
+            'access_token': create_access_token(identity=data['username']),
+            'refresh_token': create_refresh_token(identity=data['username']),
+          }
         ), 200
       return bad_unpw(), 400
     return bad_unpw(), 400
+
+  @app.route('/refresh', methods=["POST"])
+  @jwt_refresh_token_required
+  def refresh():
+    current_user = get_jwt_identity()
+    return api_response(data={'access_token': create_access_token(identity=current_user)})
+
+  @app.route('/protected')
+  @jwt_required
+  def protected():
+    return api_response(msg="Hey you're in!", data={ 'name': 'hi' }), 200
 
   @app.route('/users')
   def get_users():
