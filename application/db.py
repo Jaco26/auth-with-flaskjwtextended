@@ -28,12 +28,12 @@ class UserModel(db.Model):
     return sha256.hash(password)
   
   @staticmethod
-  def verify_hash(password, hash):
-    return sha256.verify(password, hash)
+  def verify_hash(password, pw_hash):
+    return sha256.verify(password, pw_hash)
 
   @classmethod
-  def find_by_username(cls, username):
-    return cls.query.filter_by(username=username).first()
+  def find_by_username(cls, **kwargs):
+    return cls.query.filter_by(username=kwargs.get('username')).first()
 
   @classmethod
   def return_all(cls):
